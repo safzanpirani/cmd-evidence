@@ -292,6 +292,85 @@ and uploaded with the rest, on a feature that is enabled by default.</p>
   from the one that uploads historical file contents.</p>
 </div>
 
+<h2>5. The fingerprint hashes your git email with a published salt</h2>
+
+<p>On startup, when telemetry is enabled and an auth key exists, the CLI posts a machine
+fingerprint to <code>/alpha/fingerprint/record</code>.</p>
+
+<table>
+  <tr><th>Field</th><th>Form</th></tr>
+  <tr><td>machine ID, every MAC address, OS username, hostname, <b>git email</b></td><td>salted SHA-256</td></tr>
+  <tr><td>platform, arch, OS release, CPU model, CPU count, memory, container flag, timezone</td><td>plaintext</td></tr>
+</table>
+
+<p>The salt is a constant shipped inside the published package:</p>
+<pre>Fb = "command-code:device-fingerprint:v1"
+
+function hashSignal(e) {
+  const t = e.trim();
+  if (t) return E("sha256").update(Fb).update("\0")
+           .update(t.toLowerCase()).digest("hex");
+}</pre>
+<small>cli.mjs: hashSignal, gatherRawSignals, buildMachineFingerprint</small>
+
+<p>Anyone can read that salt out of the package, so checking whether an observed hash belongs to a
+given email costs one <code>sha256</code> call. A git email is guessable and the MAC address space
+is enumerable. The hashing pseudonymizes these values against a casual reader rather than against
+anyone holding the package.</p>
+
+<p>This is gated on telemetry, which <code>DO_NOT_TRACK=1</code> or
+<code>"telemetry": false</code> in <code>~/.commandcode/config.json</code> turns off.</p>
+
+<div class="reading">
+  <b>Reading</b>
+  <p>Publishing the salt alongside the hashes it protects means the pseudonymization holds only
+  against a reader who has not opened the package. Git email is the value that most directly
+  identifies a person.</p>
+</div>
+
+<h2>6. &ldquo;Your CLI is out of date&rdquo; does not check your version</h2>
+
+<p>Requests to <code>/alpha/generate</code> require the
+<code>x-command-code-version</code> header. Omit it and the server answers:</p>
+<pre>403 "Your Command Code CLI is out of date. Run `cmd update` or `npm i -g command-code` to upgrade."</pre>
+
+<p>Tested live against the production API on 19 September 2026:</p>
+<table>
+  <tr><th>Header value</th><th>Result</th></tr>
+  <tr><td><code>1.58.0</code> (current)</td><td>passes</td></tr>
+  <tr><td><code>1.57.0</code></td><td>passes</td></tr>
+  <tr><td><code>1.0.0</code></td><td>passes</td></tr>
+  <tr><td><code>99.0.0</code></td><td>passes</td></tr>
+  <tr><td><code>garbage</code></td><td><b>403 out of date</b></td></tr>
+  <tr><td>header absent</td><td><b>403 out of date</b></td></tr>
+</table>
+
+<p>The check tests whether the header is present and version-shaped. It does not compare against a
+minimum version, so <code>1.0.0</code> passes and the upgrade message describes something the
+server never tested.</p>
+
+<div class="reading">
+  <b>Reading</b>
+  <p>The message names a cause the code does not check.</p>
+</div>
+
+<h2>Also in the bundle</h2>
+
+<p>Shorter items, covered in the
+<a href="https://gist.github.com/safzanpirani/26170636512c0b50494d6a70acfece8d">full teardown</a>:</p>
+
+<ul>
+  <li>Background requests billed to you on fixed models for title generation, compaction, tool
+  descriptions, branch summaries and vision.</li>
+  <li><code>applyPremiumCreditsFallback</code> switches to Kimi K2.5 when premium requests run
+  out.</li>
+  <li>Eight models still carry <code>badge: "free"</code> in the catalogue. All of them answer
+  <code>403 "the free … tier has been retired"</code>.</li>
+  <li>Three Axiom ingest tokens and an OTLP token are hardcoded in the published package.</li>
+  <li><code>providers.json</code> accepts any <code>baseURL</code> in three API dialects, so the
+  CLI runs against your own endpoint with no patching.</li>
+</ul>
+
 <h2>Check it yourself</h2>
 <p>Every claim above can be checked against the published package. Four commands take about two
 minutes.</p>
