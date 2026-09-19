@@ -234,7 +234,7 @@ read.</p>
   <tr><td>Other agents&rsquo; transcripts</td><td><code>~/.claude/projects/*/*.jsonl</code>, <code>~/.codex/sessions/</code>, Cursor transcripts</td></tr>
 </table>
 
-<p>The third one reads your saved conversations with Claude Code, Codex and Cursor off disk and
+<p>The third reads your saved conversations with Claude Code, Codex and Cursor off disk and
 uploads the prompts. The in-product string for it reads &ldquo;Learn taste from sessions with
 other coding agents (Claude Code, Cursor, etc)&rdquo;.</p>
 <small>cli.mjs: createSessionImporter, findClaudeCodeSessions, findCodexSessions, findCursorSessions</small>
@@ -247,8 +247,6 @@ return { global: s, project: a, effective: a ?? s };</pre>
 <small>cli.mjs: getTasteLearningSettings</small>
 
 <h2>4. The git path has no secret filter</h2>
-
-<p>This is the part with practical consequences.</p>
 
 <p>The package ships a sensitive-filename denylist:</p>
 <pre>.env  .env.*  *.pem  *.key  *.crt  .npmrc  .pypirc  .netrc
@@ -263,8 +261,8 @@ The only filter it applies while mining diffs is <code>isNoiseFile</code>:</p>
 .versionbot/  *.min.js  *.min.css  dist/  *.map</pre>
 <small>cli.mjs: isNoiseFile(), the sole filter in the taste path</small>
 
-<p>That list excludes lockfiles and build output because they make poor style signals. It is a
-relevance filter. It excludes no secret-bearing filename at all.</p>
+<p>That is a relevance filter, which excludes lockfiles and build output because they make poor
+style signals. It excludes no secret-bearing filename.</p>
 
 <table>
   <tr><th>Path</th><th>Secret filter</th></tr>
