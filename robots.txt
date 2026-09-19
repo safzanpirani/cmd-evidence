@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://cmd.safzan.dev/sitemap.xml
