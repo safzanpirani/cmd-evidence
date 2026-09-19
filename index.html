@@ -98,7 +98,8 @@ footer p{margin:0 0 .6rem}
 <h1>taste-1, examined</h1>
 <p class="sub">
   Command Code sells &ldquo;a meta neuro-symbolic AI model with continuous reinforcement
-  learning.&rdquo; This page shows what the package does instead. Every claim links to its source.
+  learning.&rdquo; It is a prompt, sent to an ordinary model, that reads your git history, your
+  conversation and your transcripts from other coding agents. Every claim links to its source.
 </p>
 
 <div class="meta">
@@ -221,22 +222,49 @@ read.</p>
   only&rdquo; describes the storage accurately and the processing inaccurately.</p>
 </div>
 
-<h2>3. The secret filter skips the upload path</h2>
+<h2>3. Taste has three inputs, and all of them leave the machine</h2>
 
-<h3>The control exists</h3>
-<p>The bundle ships a sensitive-filename denylist:</p>
+<p>The git history is one of three sources taste feeds on. Each one ends at
+<code>api.commandcode.ai</code>.</p>
+
+<table>
+  <tr><th>Source</th><th>What is read</th></tr>
+  <tr><td>Your git history</td><td><code>git show</code> across up to 200 commits, verbatim diff hunks</td></tr>
+  <tr><td>Your live conversation</td><td>your messages, JSON-serialized, in windows of 20</td></tr>
+  <tr><td>Other agents&rsquo; transcripts</td><td><code>~/.claude/projects/*/*.jsonl</code>, <code>~/.codex/sessions/</code>, Cursor transcripts</td></tr>
+</table>
+
+<p>The third one reads your saved conversations with Claude Code, Codex and Cursor off disk and
+uploads the prompts. The in-product string for it reads &ldquo;Learn taste from sessions with
+other coding agents (Claude Code, Cursor, etc)&rdquo;.</p>
+<small>cli.mjs: createSessionImporter, findClaudeCodeSessions, findCodexSessions, findCursorSessions</small>
+
+<p>Taste learning is on unless you turn it off:</p>
+<pre>const s = n.tasteLearning ?? !0,   <span class="c">// global default: ON</span>
+      i = resolveProjectOverride(r, o),
+      a = i?.value;
+return { global: s, project: a, effective: a ?? s };</pre>
+<small>cli.mjs: getTasteLearningSettings</small>
+
+<h2>4. The git path has no secret filter</h2>
+
+<p>This is the part with practical consequences.</p>
+
+<p>The package ships a sensitive-filename denylist:</p>
 <pre>.env  .env.*  *.pem  *.key  *.crt  .npmrc  .pypirc  .netrc
 id_rsa  id_rsa.*  id_ed25519  id_ed25519.*  id_ecdsa  id_ecdsa.*
 credentials  credentials.*</pre>
 <small>cli.mjs: consumed by hasSensitiveBasename()</small>
-<p><code>hasSensitiveBasename()</code> is called at six sites: write-guarding, two path-safety
-sets, and three IDE and telemetry file lists.</p>
 
-<h3>Where it is not applied</h3>
-<p>The taste diff extractor is not one of them. Its only filter selects for relevance:</p>
+<p><code>hasSensitiveBasename()</code> is called at six places: tool write-guarding, two
+path-safety sets, and three IDE and telemetry file lists. The taste extractor is not one of them.
+The only filter it applies while mining diffs is <code>isNoiseFile</code>:</p>
 <pre>package-lock.json  pnpm-lock.yaml  yarn.lock  CHANGELOG.*
 .versionbot/  *.min.js  *.min.css  dist/  *.map</pre>
 <small>cli.mjs: isNoiseFile(), the sole filter in the taste path</small>
+
+<p>That list excludes lockfiles and build output because they make poor style signals. It is a
+relevance filter. It excludes no secret-bearing filename at all.</p>
 
 <table>
   <tr><th>Path</th><th>Secret filter</th></tr>
@@ -246,11 +274,19 @@ sets, and three IDE and telemetry file lists.</p>
   <tr><td>Taste history mining</td><td><b>not applied</b></td></tr>
 </table>
 
-<p>Taste reads history rather than the working tree, using <code>git show</code> across up to 200
-commits. A repository that once committed a <code>.env</code>, <code>*.pem</code>,
-<code>id_rsa</code> or <code>credentials</code> file will have those hunks extracted verbatim and
-uploaded with the rest. Deleting a secret from <code>HEAD</code> leaves it in the range taste
-mines.</p>
+<p>Two details make this worse than a missed check on the working tree.</p>
+
+<p>Taste reads history rather than <code>HEAD</code>. It runs <code>git show</code> across up to
+200 commits, so a <code>.env</code> or private key committed once and deleted later still sits
+inside the range it reads. Removing a secret from the current tree does not remove it from what
+taste uploads.</p>
+
+<p><code>.gitignore</code> does not help either. Ignoring a file today does nothing about the
+commit that added it before it was ignored, which is the usual way a secret enters a repository.</p>
+
+<p>A repository that ever committed a <code>.env</code>, <code>*.pem</code>, <code>id_rsa</code>
+or <code>credentials</code> file will have those hunks extracted verbatim by the snippet builder
+and uploaded with the rest, on a feature that is enabled by default.</p>
 
 <div class="reading">
   <b>Reading</b>
@@ -287,7 +323,10 @@ grep -n 'isNoiseFile' cli.pretty.mjs            <span class="c"># the only taste
   19 September 2026. Later releases may differ. Quotations from vendor material are reproduced for
   identification and commentary, and archive links are provided so the originals can be read in
   full.</p>
-  <p>Longer technical writeup:
+  <p>Full teardown, with every system prompt, the tool catalogue, the wire protocol and the
+  telemetry:
+  <a href="https://gist.github.com/safzanpirani/26170636512c0b50494d6a70acfece8d">command-code-internals</a>.
+  Shorter writeup on taste-1 alone:
   <a href="https://gist.github.com/safzanpirani/5bd7a77ce304edb16f768982bb26bcc0">gist</a>.
   Corrections welcome. If a grep contradicts something here, I will fix it.</p>
 </footer>
